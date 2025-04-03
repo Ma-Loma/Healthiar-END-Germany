@@ -1,0 +1,16 @@
+---
+title: "My Website"
+---
+
+Hello, Website!
+
+For more information about simple R Markdown websites, please read the documentation at https://bookdown.org/yihui/rmarkdown/rmarkdown-site.html.
+
+```{r}
+library(healthiar)
+library(tidyverse)
+test<-exdat_erf
+test %>% 
+  slice_sample(n=10)
+```
+
