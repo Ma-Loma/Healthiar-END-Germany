@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>Applying the BEST-COST code to German END data</title>
+
+<script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">My Website</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="about.html">About</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">Applying the BEST-COST code to German END
+data</h1>
+
+</div>
+
+
+<p>Here we go.</p>
+<pre class="r"><code>rm(list=ls())
+library(healthiar)
+library(tidyverse)
+library(readxl)
+library(janitor)</code></pre>
+<p>Reading END result data from <a
+href="https://www.hlnug.de/fileadmin/dokumente/laerm/laermkartierung/ULK2022StatistikGesamt_20240704.xlsx"
+class="uri">https://www.hlnug.de/fileadmin/dokumente/laerm/laermkartierung/ULK2022StatistikGesamt_20240704.xlsx</a>.</p>
+<pre class="r"><code>agglomerations&lt;-c(&quot;Darmstadt&quot;,&quot;Frankfurt am Main&quot;,&quot;Offenbach am Main&quot;,&quot;Wiesbaden&quot;,&quot;Hanau&quot;,&quot;Kassel&quot;)
+
+road &lt;- read_excel(&quot;data/ULK2022StatistikGesamt_20240704.xlsx&quot;, 
+    sheet = &quot;Straßenlärm&quot;, skip = 1) %&gt;% 
+  janitor::clean_names() %&gt;%
+  mutate(gemeinde_kennziffer=as.numeric(gemeinde_kennziffer))%&gt;% 
+  filter(!is.na(gemeinde_kennziffer)) %&gt;% #remove sum rows
+  select(gemeinde_kennziffer:anzahl_belasteter_l_night_ab_70) %&gt;% 
+  rename_with(~str_remove(.x, &quot;anzahl_belasteter_&quot;), everything()) %&gt;%
+  rename_with(~str_remove_all(.x, &quot;_&quot;), everything()) %&gt;% 
+  rename_with(~str_replace(.x, &quot;ab&quot;,&quot;|&quot;), everything()) #
+
+road_long&lt;-road%&gt;%
+  pivot_longer(
+    cols = starts_with(&quot;l&quot;),
+    values_to = &quot;exposed&quot;
+  ) %&gt;% 
+  separate_wider_delim(
+    col = name,
+    delim = &quot;|&quot;,
+    names = c(&quot;measure&quot;, &quot;range&quot;)
+  )%&gt;% 
+  separate_wider_delim(
+    col = range,
+    delim = &quot;bis&quot;,
+    names = c(&quot;fromdB&quot;, &quot;todB&quot;),
+    too_few = &quot;align_start&quot;
+  )%&gt;% 
+  mutate(fromdB=as.numeric(fromdB),todB=as.numeric(todB)) %&gt;% 
+  mutate(
+    centraldB=fromdB+2,
+    .after=4
+  ) %&gt;% 
+  mutate(agglomeration = (namestadtgemeinde %in% agglomerations))
+
+hessen_exp_road&lt;-road_long %&gt;%
+  group_by(measure,fromdB,centraldB,todB,agglomeration) %&gt;% 
+  summarise(exposed = sum(exposed, na.rm = TRUE))%&gt;% 
+  pivot_wider(
+    names_from = measure,
+    values_from = exposed
+  ) 
+
+hessen_exp_road</code></pre>
+<pre><code>## # A tibble: 14 × 6
+## # Groups:   fromdB, centraldB, todB [7]
+##    fromdB centraldB  todB agglomeration   lden lnight
+##     &lt;dbl&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;          &lt;dbl&gt;  &lt;dbl&gt;
+##  1     55        57    59 FALSE         352014 126496
+##  2     55        57    59 TRUE          237685 182808
+##  3     60        62    64 FALSE         167616  60977
+##  4     60        62    64 TRUE          181065 106492
+##  5     65        67    69 FALSE          97363   6083
+##  6     65        67    69 TRUE          165204  18231
+##  7     70        72    74 FALSE          46771     NA
+##  8     70        72    74 TRUE           91033     NA
+##  9     75        77    NA FALSE           3594     NA
+## 10     75        77    NA TRUE           13117     NA
+## 11     50        52    54 FALSE             NA 240727
+## 12     50        52    54 TRUE              NA 205152
+## 13     70        72    NA FALSE             NA    536
+## 14     70        72    NA TRUE              NA   1370</code></pre>
+<pre class="r"><code>ha &lt;- function(level_exposure,number_exposed) {
+  result&lt;-attribute_health(
+    approach_risk = &quot;absolute_risk&quot;,
+    exp_central = level_exposure,
+    pop_exp = number_exposed,
+    erf_eq_central = &quot;78.9270-3.1162*c+0.0342*c^2&quot;
+  ) 
+  return(result$health_main$impact)
+}
+
+hessen_exp_road %&gt;% 
+  filter(agglomeration==FALSE) %&gt;% 
+  {ha(.$centraldB,.$lden)}</code></pre>
+<pre><code>## [1] 111966.9</code></pre>
+<pre class="r"><code>haList &lt;- function(disag_ID,ag_ID,level_exposure,number_exposed) {
+  result&lt;-attribute_health(
+    geo_id_disaggregated = disag_ID,
+    geo_id_aggregated = ag_ID,
+    approach_risk = &quot;absolute_risk&quot;,
+    exp_central = as.list(level_exposure),
+    pop_exp = as.list(number_exposed),
+    erf_eq_central = &quot;78.9270-3.1162*c+0.0342*c^2&quot;
+  ) 
+  return(result$health_main)
+}
+
+road_long %&gt;% 
+  filter(measure==&quot;lden&quot;) %&gt;% 
+#  filter(agglomeration==FALSE) %&gt;% 
+  {haList(.$namestadtgemeinde,.$namestadtgemeinde,.$centraldB,.$exposed)}</code></pre>
+<pre><code>## # A tibble: 426 × 6
+##    geo_id_aggregated erf_ci  exp_ci  exposure_name  impact impact_rounded
+##    &lt;chr&gt;             &lt;chr&gt;   &lt;chr&gt;   &lt;lgl&gt;           &lt;dbl&gt;          &lt;dbl&gt;
+##  1 Aarbergen         central central NA              0                  0
+##  2 Abtsteinach       central central NA              0                  0
+##  3 Ahnatal           central central NA              0.124              0
+##  4 Alheim            central central NA              0                  0
+##  5 Allendorf (Eder)  central central NA             50.9               51
+##  6 Allendorf (Lumda) central central NA              0                  0
+##  7 Alsbach-Hähnlein  central central NA            433.               433
+##  8 Alsfeld           central central NA            635.               635
+##  9 Altenstadt        central central NA            338.               338
+## 10 Amöneburg         central central NA              0.124              0
+## # ℹ 416 more rows</code></pre>
+<pre class="r"><code>road_long %&gt;% 
+  filter(measure==&quot;lden&quot;) %&gt;% 
+  group_by(namestadtgemeinde) %&gt;% 
+  mutate(HA=ha(centraldB,exposed)) %&gt;% 
+  select(gemeindekennziffer,namestadtgemeinde,HA) %&gt;% 
+  unique</code></pre>
+<pre><code>## # A tibble: 426 × 3
+## # Groups:   namestadtgemeinde [426]
+##    gemeindekennziffer namestadtgemeinde      HA
+##                 &lt;dbl&gt; &lt;chr&gt;               &lt;dbl&gt;
+##  1             411000 Darmstadt         11681. 
+##  2             412000 Frankfurt am Main 60212. 
+##  3             413000 Offenbach am Main 10072. 
+##  4             414000 Wiesbaden         25167. 
+##  5             435014 Hanau              6953. 
+##  6             611000 Kassel            20124. 
+##  7             431001 Abtsteinach           0  
+##  8             431002 Bensheim           1848. 
+##  9             431003 Biblis               20.3
+## 10             431004 Birkenau             67.0
+## # ℹ 416 more rows</code></pre>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
