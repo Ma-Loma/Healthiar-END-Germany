@@ -1,16 +1,111 @@
 ---
-title: "My Website"
+title: "Applying the BEST-COST code to German END data"
 ---
 
-Hello, Website!
 
-For more information about simple R Markdown websites, please read the documentation at https://bookdown.org/yihui/rmarkdown/rmarkdown-site.html.
+Here we go.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+rm(list=ls())
 library(healthiar)
 library(tidyverse)
-test<-exdat_erf
-test %>% 
-  slice_sample(n=10)
+library(readxl)
+library(janitor)
+```
+
+Reading END result data from 
+https://www.hlnug.de/fileadmin/dokumente/laerm/laermkartierung/ULK2022StatistikGesamt_20240704.xlsx.
+
+
+```{r read_hessen, message=FALSE, warning=FALSE}
+agglomerations<-c("Darmstadt","Frankfurt am Main","Offenbach am Main","Wiesbaden","Hanau","Kassel")
+
+road <- read_excel("data/ULK2022StatistikGesamt_20240704.xlsx", 
+    sheet = "Straßenlärm", skip = 1) %>% 
+  janitor::clean_names() %>%
+  mutate(gemeinde_kennziffer=as.numeric(gemeinde_kennziffer))%>% 
+  filter(!is.na(gemeinde_kennziffer)) %>% #remove sum rows
+  select(gemeinde_kennziffer:anzahl_belasteter_l_night_ab_70) %>% 
+  rename_with(~str_remove(.x, "anzahl_belasteter_"), everything()) %>%
+  rename_with(~str_remove_all(.x, "_"), everything()) %>% 
+  rename_with(~str_replace(.x, "ab","|"), everything()) #
+
+road_long<-road%>%
+  pivot_longer(
+    cols = starts_with("l"),
+    values_to = "exposed"
+  ) %>% 
+  separate_wider_delim(
+    col = name,
+    delim = "|",
+    names = c("measure", "range")
+  )%>% 
+  separate_wider_delim(
+    col = range,
+    delim = "bis",
+    names = c("fromdB", "todB"),
+    too_few = "align_start"
+  )%>% 
+  mutate(fromdB=as.numeric(fromdB),todB=as.numeric(todB)) %>% 
+  mutate(
+    centraldB=fromdB+2,
+    .after=4
+  ) %>% 
+  mutate(agglomeration = (namestadtgemeinde %in% agglomerations))
+
+hessen_exp_road<-road_long %>%
+  group_by(measure,fromdB,centraldB,todB,agglomeration) %>% 
+  summarise(exposed = sum(exposed, na.rm = TRUE))%>% 
+  pivot_wider(
+    names_from = measure,
+    values_from = exposed
+  ) 
+
+hessen_exp_road
+```
+
+```{r}
+ha <- function(level_exposure,number_exposed) {
+  result<-attribute_health(
+    approach_risk = "absolute_risk",
+    exp_central = level_exposure,
+    pop_exp = number_exposed,
+    erf_eq_central = "78.9270-3.1162*c+0.0342*c^2"
+  ) 
+  return(result$health_main$impact)
+}
+
+hessen_exp_road %>% 
+  filter(agglomeration==FALSE) %>% 
+  {ha(.$centraldB,.$lden)}
+
+
+haList <- function(disag_ID,ag_ID,level_exposure,number_exposed) {
+  result<-attribute_health(
+    geo_id_disaggregated = disag_ID,
+    geo_id_aggregated = ag_ID,
+    approach_risk = "absolute_risk",
+    exp_central = as.list(level_exposure),
+    pop_exp = as.list(number_exposed),
+    erf_eq_central = "78.9270-3.1162*c+0.0342*c^2"
+  ) 
+  return(result$health_main)
+}
+
+road_long %>% 
+  filter(measure=="lden") %>% 
+#  filter(agglomeration==FALSE) %>% 
+  {haList(.$namestadtgemeinde,.$namestadtgemeinde,.$centraldB,.$exposed)}
+
+```
+
+```{r}
+road_long %>% 
+  filter(measure=="lden") %>% 
+  group_by(namestadtgemeinde) %>% 
+  mutate(HA=ha(centraldB,exposed)) %>% 
+  select(gemeindekennziffer,namestadtgemeinde,HA) %>% 
+  unique
+
 ```
 
