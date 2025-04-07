@@ -89,15 +89,53 @@ haList <- function(disag_ID,ag_ID,level_exposure,number_exposed) {
     pop_exp = as.list(number_exposed),
     erf_eq_central = "78.9270-3.1162*c+0.0342*c^2"
   ) 
-  return(result$health_main)
+  return(result$health_detailed)
 }
 
-road_long %>% 
+
+resDEN<-road_long %>% 
   filter(measure=="lden") %>% 
 #  filter(agglomeration==FALSE) %>% 
-  {haList(.$namestadtgemeinde,.$namestadtgemeinde,.$centraldB,.$exposed)}
+  {haList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed)} %>% 
+  .$impact_raw %>% 
+  mutate(exposure_name="lden")
 
 ```
+
+```{r hsd}
+hsdList <- function(disag_ID,ag_ID,level_exposure,number_exposed) {
+  result<-attribute_health(
+    geo_id_disaggregated = disag_ID,
+    geo_id_aggregated = ag_ID,
+    approach_risk = "absolute_risk",
+    exp_central = as.list(level_exposure),
+    pop_exp = as.list(number_exposed),
+    erf_eq_central = "19.4312 - 0.9336*c + 0.0126 + c^2"
+  ) 
+  return(result$health_detailed)
+}
+
+resNight<-road_long %>% 
+  filter(measure=="lnight") %>% 
+#  filter(agglomeration==FALSE) %>% 
+  {haList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed)} %>% 
+  .$impact_raw %>% 
+  mutate(exposure_name="lnight")
+res<-bind_rows(resDEN,resNight)
+
+res %>% select(starts_with("geo"), exp, impact, exposure_name) %>%
+  mutate(geo_id_aggregated=as.logical(geo_id_aggregated)) %>% 
+  left_join(road_long, by = c(
+    c(
+      "geo_id_disaggregated" = "namestadtgemeinde",
+      "geo_id_aggregated" = "agglomeration",
+      "exp"="centraldB"
+    )
+  ))
+
+```
+
+Using an own method
 
 ```{r}
 road_long %>% 
