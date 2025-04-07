@@ -1,8 +1,6 @@
 name: "my-website"
 navbar:
-  title: "My Website"
+  title: "Matthias Lochmann healthiar test"
   left:
     - text: "Home"
       href: index.html
-    - text: "About"
-      href: about.html

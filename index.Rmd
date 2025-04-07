@@ -4,6 +4,7 @@ output:
   html_document:
     code_folding: hide
     df_print: paged
+    self_contained: true
 ---
 
 
@@ -207,7 +208,7 @@ casesOKHSD<-comp %>% filter(abs(diffHSD)< 0.5) %>% count() %>% unlist
 casesbigDiffHSD<-comp %>% filter(diffHSD< -0.5) %>% count() %>% unlist
 ```
 
-The picture of HSD-numbers is more diverse: The differences between the HSD-numbers calculated account to always less than $\pm 0,5$ in most  (`casesOKHSD`) cases, however in `r casesbigDiffHSD` cases, the difference between the two calculations amounts to up to a difference of 90 for a single municipality.
+The picture of HSD-numbers is more diverse: The differences between the HSD-numbers calculated account to always less than $\pm 0,5$ in most  (`r casesOKHSD`) cases, however in `r casesbigDiffHSD` cases, the difference between the two calculations amounts to up to a difference of 90 for a single municipality.
 
 ```{r HSDcompare}
 comp %>% 
