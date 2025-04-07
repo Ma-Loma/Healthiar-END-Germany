@@ -30,8 +30,11 @@
        code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
        pre:not([class]) { background-color: white }</style>
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/pagedtable-1.1/css/pagedtable.css" rel="stylesheet" />
+<script src="site_libs/pagedtable-1.1/js/pagedtable.js"></script>
 
 <style type="text/css">
   code{white-space: pre-wrap;}
@@ -216,6 +219,9 @@ $(document).ready(function () {
 </style>
 
 <!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
 
 
 
@@ -258,6 +264,14 @@ $(document).ready(function () {
 
 <div id="header">
 
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
 
 
 <h1 class="title toc-ignore">Applying the BEST-COST code to German END
@@ -266,15 +280,37 @@ data</h1>
 </div>
 
 
-<p>Here we go.</p>
+<p>This is to gather experience using the <em>healthiar</em>
+package.</p>
 <pre class="r"><code>rm(list=ls())
 library(healthiar)
 library(tidyverse)
 library(readxl)
 library(janitor)</code></pre>
+<div id="reading-data" class="section level1">
+<h1>Reading data</h1>
+<p>To this end, I would like to apply the code to real data created in
+Hessen (a part of Germany) by the agency HLNUG for the official END
+noise mapping and compare to other calculations.</p>
+<div id="reading-external-data" class="section level2">
+<h2>Reading external data</h2>
+<p>The population of Hessen as published here: <a
+href="https://www.destatis.de/DE/Themen/Laender-Regionen/Regionales/Gemeindeverzeichnis/Administrativ/Archiv/GVAuszugJ/31122021_Auszug_GV.xlsx?__blob=publicationFile&amp;v=4"
+class="uri">https://www.destatis.de/DE/Themen/Laender-Regionen/Regionales/Gemeindeverzeichnis/Administrativ/Archiv/GVAuszugJ/31122021_Auszug_GV.xlsx?__blob=publicationFile&amp;v=4</a></p>
+<pre class="r"><code>population_Hessen &lt;- read_excel(&quot;data/Population Hessen.xlsx&quot;) %&gt;% 
+  filter(!is.na(Gem)) %&gt;% 
+  select(!Fläche) %&gt;% 
+  mutate(gemeindekennziffer=paste0(RB,Kreis,Gem) %&gt;% 
+           as.numeric,.keep=&quot;unused&quot;,.before=1) %&gt;% 
+#  mutate(Gemeindename=str_remove(Gemeindename,&quot;,.*&quot;))
+    mutate(Gemeindename=NULL,population=Bevölkerung,.keep=&quot;unused&quot;)</code></pre>
+</div>
+<div id="reading-end-results" class="section level2">
+<h2>Reading END results</h2>
 <p>Reading END result data from <a
 href="https://www.hlnug.de/fileadmin/dokumente/laerm/laermkartierung/ULK2022StatistikGesamt_20240704.xlsx"
-class="uri">https://www.hlnug.de/fileadmin/dokumente/laerm/laermkartierung/ULK2022StatistikGesamt_20240704.xlsx</a>.</p>
+class="uri">https://www.hlnug.de/fileadmin/dokumente/laerm/laermkartierung/ULK2022StatistikGesamt_20240704.xlsx</a>.
+The data can be shown like this:</p>
 <pre class="r"><code>agglomerations&lt;-c(&quot;Darmstadt&quot;,&quot;Frankfurt am Main&quot;,&quot;Offenbach am Main&quot;,&quot;Wiesbaden&quot;,&quot;Hanau&quot;,&quot;Kassel&quot;)
 
 road &lt;- read_excel(&quot;data/ULK2022StatistikGesamt_20240704.xlsx&quot;, 
@@ -282,10 +318,12 @@ road &lt;- read_excel(&quot;data/ULK2022StatistikGesamt_20240704.xlsx&quot;,
   janitor::clean_names() %&gt;%
   mutate(gemeinde_kennziffer=as.numeric(gemeinde_kennziffer))%&gt;% 
   filter(!is.na(gemeinde_kennziffer)) %&gt;% #remove sum rows
-  select(gemeinde_kennziffer:anzahl_belasteter_l_night_ab_70) %&gt;% 
+  select(gemeinde_kennziffer:anzahl_belasteter_l_night_ab_70|starts_with(&quot;zahl&quot;)) %&gt;% 
   rename_with(~str_remove(.x, &quot;anzahl_belasteter_&quot;), everything()) %&gt;%
   rename_with(~str_remove_all(.x, &quot;_&quot;), everything()) %&gt;% 
-  rename_with(~str_replace(.x, &quot;ab&quot;,&quot;|&quot;), everything()) #
+  rename_with(~str_replace(.x, &quot;ab&quot;,&quot;|&quot;), everything()) %&gt;% 
+  left_join(population_Hessen)
+
 
 road_long&lt;-road%&gt;%
   pivot_longer(
@@ -319,24 +357,19 @@ hessen_exp_road&lt;-road_long %&gt;%
   ) 
 
 hessen_exp_road</code></pre>
-<pre><code>## # A tibble: 14 × 6
-## # Groups:   fromdB, centraldB, todB [7]
-##    fromdB centraldB  todB agglomeration   lden lnight
-##     &lt;dbl&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;          &lt;dbl&gt;  &lt;dbl&gt;
-##  1     55        57    59 FALSE         352014 126496
-##  2     55        57    59 TRUE          237685 182808
-##  3     60        62    64 FALSE         167616  60977
-##  4     60        62    64 TRUE          181065 106492
-##  5     65        67    69 FALSE          97363   6083
-##  6     65        67    69 TRUE          165204  18231
-##  7     70        72    74 FALSE          46771     NA
-##  8     70        72    74 TRUE           91033     NA
-##  9     75        77    NA FALSE           3594     NA
-## 10     75        77    NA TRUE           13117     NA
-## 11     50        52    54 FALSE             NA 240727
-## 12     50        52    54 TRUE              NA 205152
-## 13     70        72    NA FALSE             NA    536
-## 14     70        72    NA TRUE              NA   1370</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["fromdB"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["centraldB"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["todB"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["agglomeration"],"name":[4],"type":["lgl"],"align":["right"]},{"label":["lden"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["lnight"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"55","2":"57","3":"59","4":"FALSE","5":"352014","6":"126496"},{"1":"55","2":"57","3":"59","4":"TRUE","5":"237685","6":"182808"},{"1":"60","2":"62","3":"64","4":"FALSE","5":"167616","6":"60977"},{"1":"60","2":"62","3":"64","4":"TRUE","5":"181065","6":"106492"},{"1":"65","2":"67","3":"69","4":"FALSE","5":"97363","6":"6083"},{"1":"65","2":"67","3":"69","4":"TRUE","5":"165204","6":"18231"},{"1":"70","2":"72","3":"74","4":"FALSE","5":"46771","6":"NA"},{"1":"70","2":"72","3":"74","4":"TRUE","5":"91033","6":"NA"},{"1":"75","2":"77","3":"NA","4":"FALSE","5":"3594","6":"NA"},{"1":"75","2":"77","3":"NA","4":"TRUE","5":"13117","6":"NA"},{"1":"50","2":"52","3":"54","4":"FALSE","5":"NA","6":"240727"},{"1":"50","2":"52","3":"54","4":"TRUE","5":"NA","6":"205152"},{"1":"70","2":"72","3":"NA","4":"FALSE","5":"NA","6":"536"},{"1":"70","2":"72","3":"NA","4":"TRUE","5":"NA","6":"1370"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+</div>
+<div id="calculate-impact" class="section level1">
+<h1>Calculate Impact</h1>
+<div id="annoyance-and-sleep-disturbance" class="section level2">
+<h2>Annoyance and sleep disturbance</h2>
+<p>To calculate HA and HSD with <em>healhtiar</em> is straight
+forward.</p>
 <pre class="r"><code>ha &lt;- function(level_exposure,number_exposed) {
   result&lt;-attribute_health(
     approach_risk = &quot;absolute_risk&quot;,
@@ -347,61 +380,116 @@ hessen_exp_road</code></pre>
   return(result$health_main$impact)
 }
 
-hessen_exp_road %&gt;% 
-  filter(agglomeration==FALSE) %&gt;% 
-  {ha(.$centraldB,.$lden)}</code></pre>
-<pre><code>## [1] 111966.9</code></pre>
-<pre class="r"><code>haList &lt;- function(disag_ID,ag_ID,level_exposure,number_exposed) {
+# hessen_exp_road %&gt;% 
+#   filter(agglomeration==FALSE) %&gt;% 
+#   {ha(.$centraldB,.$lden)}
+
+
+haList &lt;- function(disag_ID,ag_ID,level_exposure,number_exposed,pop) {
   result&lt;-attribute_health(
     geo_id_disaggregated = disag_ID,
     geo_id_aggregated = ag_ID,
     approach_risk = &quot;absolute_risk&quot;,
     exp_central = as.list(level_exposure),
     pop_exp = as.list(number_exposed),
+    population = as.list(pop),
     erf_eq_central = &quot;78.9270-3.1162*c+0.0342*c^2&quot;
   ) 
-  return(result$health_main)
+  return(result$health_detailed)
 }
 
-road_long %&gt;% 
+
+resDEN&lt;-road_long %&gt;% 
   filter(measure==&quot;lden&quot;) %&gt;% 
 #  filter(agglomeration==FALSE) %&gt;% 
-  {haList(.$namestadtgemeinde,.$namestadtgemeinde,.$centraldB,.$exposed)}</code></pre>
-<pre><code>## # A tibble: 426 × 6
-##    geo_id_aggregated erf_ci  exp_ci  exposure_name  impact impact_rounded
-##    &lt;chr&gt;             &lt;chr&gt;   &lt;chr&gt;   &lt;lgl&gt;           &lt;dbl&gt;          &lt;dbl&gt;
-##  1 Aarbergen         central central NA              0                  0
-##  2 Abtsteinach       central central NA              0                  0
-##  3 Ahnatal           central central NA              0.124              0
-##  4 Alheim            central central NA              0                  0
-##  5 Allendorf (Eder)  central central NA             50.9               51
-##  6 Allendorf (Lumda) central central NA              0                  0
-##  7 Alsbach-Hähnlein  central central NA            433.               433
-##  8 Alsfeld           central central NA            635.               635
-##  9 Altenstadt        central central NA            338.               338
-## 10 Amöneburg         central central NA              0.124              0
-## # ℹ 416 more rows</code></pre>
-<pre class="r"><code>road_long %&gt;% 
-  filter(measure==&quot;lden&quot;) %&gt;% 
-  group_by(namestadtgemeinde) %&gt;% 
-  mutate(HA=ha(centraldB,exposed)) %&gt;% 
-  select(gemeindekennziffer,namestadtgemeinde,HA) %&gt;% 
-  unique</code></pre>
-<pre><code>## # A tibble: 426 × 3
-## # Groups:   namestadtgemeinde [426]
-##    gemeindekennziffer namestadtgemeinde      HA
-##                 &lt;dbl&gt; &lt;chr&gt;               &lt;dbl&gt;
-##  1             411000 Darmstadt         11681. 
-##  2             412000 Frankfurt am Main 60212. 
-##  3             413000 Offenbach am Main 10072. 
-##  4             414000 Wiesbaden         25167. 
-##  5             435014 Hanau              6953. 
-##  6             611000 Kassel            20124. 
-##  7             431001 Abtsteinach           0  
-##  8             431002 Bensheim           1848. 
-##  9             431003 Biblis               20.3
-## 10             431004 Birkenau             67.0
-## # ℹ 416 more rows</code></pre>
+  {haList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed,.$population)} %&gt;% 
+  .$impact_raw %&gt;% 
+  mutate(outcome=&quot;HA&quot;)</code></pre>
+<pre class="r"><code>hsdList &lt;- function(disag_ID,ag_ID,level_exposure,number_exposed,pop) {
+  result&lt;-attribute_health(
+    geo_id_disaggregated = disag_ID,
+    geo_id_aggregated = ag_ID,
+    approach_risk = &quot;absolute_risk&quot;,
+    exp_central = as.list(level_exposure),
+    pop_exp = as.list(number_exposed),
+    population = as.list(pop),
+    erf_eq_central = &quot;19.4312 - 0.9336*c + 0.0126 * c^2&quot;
+  ) 
+  return(result$health_detailed)
+}
+
+resNight&lt;-road_long %&gt;% 
+  filter(measure==&quot;lnight&quot;) %&gt;% 
+#  filter(agglomeration==FALSE) %&gt;% 
+  {hsdList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed,.$population)} %&gt;% 
+  .$impact_raw %&gt;% 
+  mutate(outcome=&quot;HSD&quot;)
+res&lt;-bind_rows(resDEN,resNight) %&gt;% 
+  select(starts_with(&quot;geo&quot;), exp, impact, outcome) %&gt;%
+  mutate(geo_id_aggregated=as.logical(geo_id_aggregated)) %&gt;%
+  group_by(outcome,geo_id_disaggregated) %&gt;% 
+  summarise(impact=sum(impact)) %&gt;% 
+  pivot_wider(names_from=outcome,values_from = impact)</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;outcome&#39;. You can override using the
+## `.groups` argument.</code></pre>
+<pre class="r"><code>res</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["geo_id_disaggregated"],"name":[1],"type":["chr"],"align":["left"]},{"label":["HA"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["HSD"],"name":[3],"type":["dbl"],"align":["right"]}],"data":[{"1":"Aarbergen","2":"0.000000","3":"0.000000"},{"1":"Abtsteinach","2":"0.000000","3":"0.000000"},{"1":"Ahnatal","2":"0.124194","3":"0.000000"},{"1":"Alheim","2":"0.000000","3":"0.000000"},{"1":"Allendorf (Eder)","2":"50.886610","3":"9.508650"},{"1":"Allendorf (Lumda)","2":"0.000000","3":"0.000000"},{"1":"Alsbach-Hähnlein","2":"433.222234","3":"104.900498"},{"1":"Alsfeld","2":"635.027166","3":"169.935020"},{"1":"Altenstadt","2":"337.880556","3":"77.251428"},{"1":"Amöneburg","2":"0.124194","3":"0.000000"},{"1":"Angelburg","2":"0.000000","3":"0.000000"},{"1":"Antrifttal","2":"0.000000","3":"0.000000"},{"1":"Aßlar","2":"526.074858","3":"135.881296"},{"1":"Babenhausen","2":"259.149316","3":"59.014146"},{"1":"Bad Arolsen","2":"15.460572","3":"2.053764"},{"1":"Bad Camberg","2":"420.916750","3":"104.251258"},{"1":"Bad Emstal","2":"0.000000","3":"0.000000"},{"1":"Bad Endbach","2":"0.000000","3":"0.000000"},{"1":"Bad Hersfeld","2":"1201.803266","3":"306.476742"},{"1":"Bad Homburg v.d. Höhe","2":"1391.004958","3":"323.391778"},{"1":"Bad Karlshafen","2":"0.000000","3":"0.000000"},{"1":"Bad König","2":"250.978906","3":"53.364670"},{"1":"Bad Nauheim","2":"999.351524","3":"244.913602"},{"1":"Bad Orb","2":"202.443498","3":"47.060494"},{"1":"Bad Salzschlirf","2":"0.000000","3":"0.000000"},{"1":"Bad Schwalbach","2":"148.587190","3":"43.936462"},{"1":"Bad Soden am Taunus","2":"569.848168","3":"139.593136"},{"1":"Bad Soden-Salmünster","2":"501.942360","3":"130.919342"},{"1":"Bad Sooden-Allendorf","2":"105.539968","3":"22.434918"},{"1":"Bad Vilbel","2":"835.109564","3":"192.619160"},{"1":"Bad Wildungen","2":"73.761526","3":"19.542028"},{"1":"Bad Zwesten","2":"8.215650","3":"0.693616"},{"1":"Battenberg (Eder)","2":"21.304674","3":"3.192540"},{"1":"Baunatal","2":"862.134274","3":"224.559188"},{"1":"Bebra","2":"48.996156","3":"6.813726"},{"1":"Bensheim","2":"1848.478522","3":"489.094114"},{"1":"Berkatal","2":"0.000000","3":"0.000000"},{"1":"Beselich","2":"83.927324","3":"13.205550"},{"1":"Biblis","2":"20.315196","3":"5.528260"},{"1":"Bickenbach","2":"408.346160","3":"98.827922"},{"1":"Biebergemünd","2":"232.492624","3":"66.481048"},{"1":"Biebertal","2":"0.000000","3":"0.000000"},{"1":"Biebesheim am Rhein","2":"0.000000","3":"0.000000"},{"1":"Biedenkopf","2":"172.617518","3":"43.961412"},{"1":"Birkenau","2":"67.031926","3":"16.881492"},{"1":"Birstein","2":"0.000000","3":"0.000000"},{"1":"Bischoffen","2":"0.000000","3":"0.000000"},{"1":"Bischofsheim","2":"1093.092992","3":"295.030110"},{"1":"Borken (Hessen)","2":"26.249032","3":"6.833154"},{"1":"Brachttal","2":"30.780014","3":"8.049968"},{"1":"Braunfels","2":"37.859752","3":"6.171152"},{"1":"Brechen","2":"122.534118","3":"24.536194"},{"1":"Breidenbach","2":"30.760586","3":"7.377548"},{"1":"Breitenbach am Herzberg","2":"4.518664","3":"0.247720"},{"1":"Breitscheid","2":"0.000000","3":"0.000000"},{"1":"Brensbach","2":"58.429120","3":"11.221994"},{"1":"Breuberg","2":"101.876474","3":"25.346710"},{"1":"Breuna","2":"35.524952","3":"6.192734"},{"1":"Brombachtal","2":"0.000000","3":"0.000000"},{"1":"Bromskirchen","2":"0.000000","3":"0.000000"},{"1":"Bruchköbel","2":"176.742058","3":"35.014148"},{"1":"Burghaun","2":"26.766848","3":"2.059328"},{"1":"Burgwald","2":"0.000000","3":"0.000000"},{"1":"Buseck","2":"136.226366","3":"31.730018"},{"1":"Butzbach","2":"598.466940","3":"156.045004"},{"1":"Büdingen","2":"210.521364","3":"55.266424"},{"1":"Bürstadt","2":"283.922298","3":"63.758750"},{"1":"Büttelborn","2":"669.866820","3":"169.276004"},{"1":"Calden","2":"47.619296","3":"13.309552"},{"1":"Cornberg","2":"0.000000","3":"0.000000"},{"1":"Cölbe","2":"125.047146","3":"15.272884"},{"1":"Darmstadt","2":"11681.446684","3":"3072.111462"},{"1":"Dautphetal","2":"164.193844","3":"37.705416"},{"1":"Dieburg","2":"383.855932","3":"81.359052"},{"1":"Diemelsee","2":"0.000000","3":"0.000000"},{"1":"Diemelstadt","2":"71.223204","3":"15.605444"},{"1":"Dietzenbach","2":"713.018830","3":"179.759682"},{"1":"Dietzhölztal","2":"0.000000","3":"0.000000"},{"1":"Dillenburg","2":"640.635310","3":"159.676258"},{"1":"Dipperz","2":"0.000000","3":"0.000000"},{"1":"Dornburg","2":"36.002918","3":"8.521330"},{"1":"Dreieich","2":"1541.832680","3":"411.700724"},{"1":"Driedorf","2":"2.775326","3":"0.511866"},{"1":"Ebersburg","2":"0.000000","3":"0.000000"},{"1":"Ebsdorfergrund","2":"0.000000","3":"0.000000"},{"1":"Echzell","2":"14.003958","3":"2.130392"},{"1":"Edermünde","2":"102.883058","3":"27.910632"},{"1":"Edertal","2":"0.000000","3":"0.000000"},{"1":"Egelsbach","2":"108.391038","3":"24.183494"},{"1":"Ehrenberg (Rhön)","2":"0.000000","3":"0.000000"},{"1":"Ehringshausen","2":"228.505960","3":"57.532840"},{"1":"Eichenzell","2":"356.468200","3":"71.208186"},{"1":"Einhausen","2":"245.934590","3":"58.889894"},{"1":"Eiterfeld","2":"0.000000","3":"0.000000"},{"1":"Elbtal","2":"95.349854","3":"24.212966"},{"1":"Eltville am Rhein","2":"349.327262","3":"77.885934"},{"1":"Elz","2":"385.599398","3":"91.612434"},{"1":"Eppertshausen","2":"294.692892","3":"64.940336"},{"1":"Eppstein","2":"312.287962","3":"77.439460"},{"1":"Erbach (Odenwald)","2":"276.843942","3":"71.700584"},{"1":"Erlensee","2":"530.110726","3":"119.163262"},{"1":"Erzhausen","2":"67.370274","3":"13.424274"},{"1":"Eschborn","2":"988.362136","3":"231.175860"},{"1":"Eschenburg","2":"79.855430","3":"21.660856"},{"1":"Eschwege","2":"177.869862","3":"48.957974"},{"1":"Espenau","2":"14.102552","3":"2.312346"},{"1":"Feldatal","2":"0.000000","3":"0.000000"},{"1":"Felsberg","2":"71.444540","3":"19.018002"},{"1":"Fernwald","2":"293.131254","3":"65.434396"},{"1":"Fischbachtal","2":"0.000000","3":"0.000000"},{"1":"Flieden","2":"134.122142","3":"26.470998"},{"1":"Florstadt","2":"242.552092","3":"57.462490"},{"1":"Flörsbachtal","2":"0.000000","3":"0.000000"},{"1":"Flörsheim am Main","2":"1276.410840","3":"343.922380"},{"1":"Frankenau","2":"0.000000","3":"0.000000"},{"1":"Frankenberg (Eder)","2":"11.972406","3":"1.889150"},{"1":"Frankfurt am Main","2":"60211.819492","3":"16496.047512"},{"1":"Freiensteinau","2":"0.000000","3":"0.000000"},{"1":"Freigericht","2":"82.229700","3":"21.192134"},{"1":"Friedberg (Hessen)","2":"1044.966190","3":"276.588860"},{"1":"Friedewald","2":"8.569386","3":"1.288144"},{"1":"Friedrichsdorf","2":"1270.778638","3":"307.160234"},{"1":"Frielendorf","2":"91.977234","3":"25.107326"},{"1":"Fritzlar","2":"155.487886","3":"33.812662"},{"1":"Fronhausen","2":"26.127904","3":"2.382528"},{"1":"Fränkisch-Crumbach","2":"0.000000","3":"0.000000"},{"1":"Fulda","2":"3752.153978","3":"1003.857050"},{"1":"Fuldabrück","2":"589.889864","3":"107.692520"},{"1":"Fuldatal","2":"111.229626","3":"25.769080"},{"1":"Fürth","2":"214.686974","3":"55.578098"},{"1":"Gedern","2":"0.000000","3":"0.000000"},{"1":"Geisenheim","2":"86.290224","3":"22.456408"},{"1":"Gelnhausen","2":"1864.551426","3":"483.793150"},{"1":"Gemarkung Michelbuch (gemeindefrei)","2":"0.000000","3":"0.000000"},{"1":"Gemünden (Felda)","2":"132.718258","3":"32.640276"},{"1":"Gemünden (Wohra)","2":"0.000000","3":"0.000000"},{"1":"Gernsheim","2":"161.386460","3":"42.142328"},{"1":"Gersfeld (Rhön)","2":"0.000000","3":"0.000000"},{"1":"Gießen","2":"3790.965240","3":"978.051184"},{"1":"Gilserberg","2":"0.000000","3":"0.000000"},{"1":"Ginsheim-Gustavsburg","2":"1140.924446","3":"299.252226"},{"1":"Gladenbach","2":"0.000000","3":"0.000000"},{"1":"Glashütten","2":"15.146760","3":"4.068846"},{"1":"Glauburg","2":"0.000000","3":"0.000000"},{"1":"Gorxheimertal","2":"0.000000","3":"0.000000"},{"1":"Grasellenbach","2":"0.000000","3":"0.000000"},{"1":"Grebenau","2":"0.000000","3":"0.000000"},{"1":"Grebenhain","2":"0.000000","3":"0.000000"},{"1":"Grebenstein","2":"49.627704","3":"10.492196"},{"1":"Greifenstein","2":"0.000000","3":"0.000000"},{"1":"Griesheim","2":"1067.452168","3":"301.371648"},{"1":"Groß-Bieberau","2":"194.180804","3":"55.365366"},{"1":"Groß-Gerau","2":"934.345474","3":"239.025290"},{"1":"Groß-Rohrheim","2":"8.320998","3":"0.099088"},{"1":"Groß-Umstadt","2":"130.108858","3":"31.031406"},{"1":"Groß-Zimmern","2":"256.660404","3":"54.669970"},{"1":"Großalmerode","2":"42.550098","3":"11.145482"},{"1":"Großenlüder","2":"103.557780","3":"19.119294"},{"1":"Großkrotzenburg","2":"24.313162","3":"3.011526"},{"1":"Grävenwiesbach","2":"3.005612","3":"0.611690"},{"1":"Grünberg","2":"100.676908","3":"23.879286"},{"1":"Gründau","2":"521.785322","3":"125.869640"},{"1":"Gudensberg","2":"169.431946","3":"41.613260"},{"1":"Gutsbezirk Kaufunger Wald","2":"0.000000","3":"0.000000"},{"1":"Gutsbezirk Reinhardswald","2":"0.000000","3":"0.000000"},{"1":"Gutsbezirk Spessart","2":"0.000000","3":"0.000000"},{"1":"Guxhagen","2":"211.332546","3":"47.140206"},{"1":"Habichtswald","2":"92.064842","3":"14.703348"},{"1":"Hadamar","2":"209.413440","3":"53.105734"},{"1":"Haiger","2":"553.283268","3":"143.764262"},{"1":"Haina (Kloster)","2":"0.000000","3":"0.000000"},{"1":"Hainburg","2":"228.344698","3":"55.820720"},{"1":"Hammersbach","2":"170.331630","3":"43.600682"},{"1":"Hanau","2":"6952.945642","3":"1792.853002"},{"1":"Hasselroth","2":"183.419550","3":"41.964900"},{"1":"Hattersheim am Main","2":"1046.808998","3":"237.805812"},{"1":"Hatzfeld (Eder)","2":"0.000000","3":"0.000000"},{"1":"Hauneck","2":"60.591978","3":"11.301942"},{"1":"Haunetal","2":"3.152530","3":"0.396352"},{"1":"Heidenrod","2":"24.052880","3":"5.769946"},{"1":"Helsa","2":"49.412700","3":"5.545306"},{"1":"Heppenheim (Bergstraße)","2":"1222.373748","3":"324.790322"},{"1":"Herborn","2":"665.505386","3":"149.559520"},{"1":"Herbstein","2":"0.000000","3":"0.000000"},{"1":"Heringen (Werra)","2":"0.000000","3":"0.000000"},{"1":"Herleshausen","2":"69.787804","3":"18.331298"},{"1":"Hessisch Lichtenau","2":"56.491730","3":"14.033786"},{"1":"Heuchelheim a.d. Lahn","2":"229.470488","3":"59.043144"},{"1":"Heusenstamm","2":"1475.372624","3":"396.542128"},{"1":"Hilders","2":"0.000000","3":"0.000000"},{"1":"Hirschhorn (Neckar)","2":"0.000000","3":"0.000000"},{"1":"Hirzenhain","2":"0.000000","3":"0.000000"},{"1":"Hochheim am Main","2":"884.934638","3":"227.778340"},{"1":"Hofbieber","2":"0.000000","3":"0.000000"},{"1":"Hofgeismar","2":"3.686998","3":"0.842248"},{"1":"Hofheim am Taunus","2":"1515.845406","3":"381.637094"},{"1":"Hohenahr","2":"0.000000","3":"0.000000"},{"1":"Hohenroda","2":"0.000000","3":"0.000000"},{"1":"Hohenstein","2":"0.000000","3":"0.000000"},{"1":"Homberg (Efze)","2":"33.109698","3":"6.010040"},{"1":"Homberg (Ohm)","2":"0.000000","3":"0.000000"},{"1":"Hosenfeld","2":"0.000000","3":"0.000000"},{"1":"Hungen","2":"0.000000","3":"0.000000"},{"1":"Höchst i. Odw.","2":"170.942588","3":"25.334908"},{"1":"Hünfeld","2":"185.255784","3":"40.786598"},{"1":"Hünfelden","2":"82.033542","3":"17.645434"},{"1":"Hünstetten","2":"39.540242","3":"2.724920"},{"1":"Hüttenberg","2":"221.008670","3":"50.908602"},{"1":"Idstein","2":"1049.626032","3":"234.474652"},{"1":"Immenhausen","2":"0.000000","3":"0.000000"},{"1":"Jesberg","2":"0.000000","3":"0.000000"},{"1":"Jossgrund","2":"0.000000","3":"0.000000"},{"1":"Kalbach","2":"147.651428","3":"44.282156"},{"1":"Karben","2":"212.343502","3":"50.372606"},{"1":"Kassel","2":"20123.947434","3":"5515.631772"},{"1":"Kaufungen","2":"143.865786","3":"29.847084"},{"1":"Kefenrod","2":"0.000000","3":"0.000000"},{"1":"Kelkheim (Taunus)","2":"486.217750","3":"120.109188"},{"1":"Kelsterbach","2":"766.040578","3":"168.765864"},{"1":"Kiedrich","2":"2.043642","3":"0.445896"},{"1":"Kirchhain","2":"79.702250","3":"17.482720"},{"1":"Kirchheim","2":"280.830710","3":"88.061638"},{"1":"Kirtorf","2":"0.000000","3":"0.000000"},{"1":"Knüllwald","2":"247.016798","3":"70.148858"},{"1":"Korbach","2":"80.858310","3":"20.345290"},{"1":"Kriftel","2":"643.303322","3":"154.368868"},{"1":"Kronberg im Taunus","2":"283.677938","3":"62.529984"},{"1":"Königstein im Taunus","2":"436.128020","3":"114.997506"},{"1":"Körle","2":"1.987104","3":"0.099088"},{"1":"Künzell","2":"241.147212","3":"50.075656"},{"1":"Lahnau","2":"342.186878","3":"69.964782"},{"1":"Lahntal","2":"115.676080","3":"27.518926"},{"1":"Lampertheim","2":"498.632850","3":"130.281298"},{"1":"Langen (Hessen)","2":"1621.953340","3":"417.652264"},{"1":"Langenselbold","2":"752.718392","3":"194.024296"},{"1":"Langgöns","2":"192.326662","3":"37.485988"},{"1":"Laubach","2":"0.000000","3":"0.000000"},{"1":"Lauterbach (Hessen)","2":"72.252030","3":"15.818068"},{"1":"Lautertal (Odenwald)","2":"156.987330","3":"45.046586"},{"1":"Lautertal (Vogelsberg)","2":"0.000000","3":"0.000000"},{"1":"Leun","2":"94.993270","3":"15.803406"},{"1":"Lich","2":"60.018590","3":"12.451172"},{"1":"Lichtenfels","2":"0.000000","3":"0.000000"},{"1":"Liebenau","2":"0.000000","3":"0.000000"},{"1":"Liederbach am Taunus","2":"592.121744","3":"154.790118"},{"1":"Limburg a. d. Lahn","2":"1794.712758","3":"473.843742"},{"1":"Limeshain","2":"151.053614","3":"34.336580"},{"1":"Linden","2":"639.547960","3":"149.745700"},{"1":"Lindenfels","2":"0.000000","3":"0.000000"},{"1":"Linsengericht","2":"301.730338","3":"80.788930"},{"1":"Lohfelden","2":"716.751818","3":"198.266740"},{"1":"Lohra","2":"17.168062","3":"3.757218"},{"1":"Lollar","2":"150.708028","3":"33.835330"},{"1":"Lorch am Rhein","2":"0.000000","3":"0.000000"},{"1":"Lorsch","2":"841.009538","3":"208.220940"},{"1":"Ludwigsau","2":"170.927052","3":"45.263442"},{"1":"Löhnberg","2":"26.414858","3":"2.752208"},{"1":"Lützelbach","2":"0.000000","3":"0.000000"},{"1":"Mainhausen","2":"357.431752","3":"85.774276"},{"1":"Maintal","2":"1798.815956","3":"473.050234"},{"1":"Malsfeld","2":"65.745578","3":"17.352522"},{"1":"Marburg","2":"2036.057644","3":"500.832302"},{"1":"Meinhard","2":"9.849860","3":"2.722358"},{"1":"Meißner","2":"0.000000","3":"0.000000"},{"1":"Melsungen","2":"129.776880","3":"28.323464"},{"1":"Mengerskirchen","2":"0.000000","3":"0.000000"},{"1":"Merenberg","2":"38.189306","3":"6.126498"},{"1":"Messel","2":"0.000000","3":"0.000000"},{"1":"Michelstadt","2":"289.416044","3":"75.212690"},{"1":"Mittenaar","2":"38.131186","3":"8.796782"},{"1":"Modautal","2":"0.000000","3":"0.000000"},{"1":"Morschen","2":"0.000000","3":"0.000000"},{"1":"Mossautal","2":"0.000000","3":"0.000000"},{"1":"Mörfelden-Walldorf","2":"1694.236328","3":"487.243064"},{"1":"Mörlenbach","2":"186.703110","3":"48.949946"},{"1":"Mücke","2":"99.997154","3":"30.443160"},{"1":"Mühlheim am Main","2":"766.264696","3":"203.725702"},{"1":"Mühltal","2":"132.028206","3":"31.335946"},{"1":"Münchhausen","2":"93.572602","3":"27.480138"},{"1":"Münster (Hessen)","2":"318.356252","3":"77.448650"},{"1":"Münzenberg","2":"357.434350","3":"88.303958"},{"1":"Nauheim","2":"331.232410","3":"72.227332"},{"1":"Naumburg","2":"0.000000","3":"0.000000"},{"1":"Neckarsteinach","2":"128.262774","3":"35.318380"},{"1":"Nentershausen","2":"0.000000","3":"0.000000"},{"1":"Neu-Anspach","2":"116.937416","3":"29.508742"},{"1":"Neu-Eichenberg","2":"10.173920","3":"1.585408"},{"1":"Neu-Isenburg","2":"2900.896144","3":"804.661978"},{"1":"Neuberg","2":"79.383348","3":"14.408380"},{"1":"Neuenstein","2":"76.651708","3":"22.917842"},{"1":"Neuental","2":"0.000000","3":"0.000000"},{"1":"Neuhof","2":"91.839314","3":"19.441110"},{"1":"Neukirchen (Knüllgebirge)","2":"0.000000","3":"0.000000"},{"1":"Neustadt (Hessen)","2":"43.958708","3":"10.156104"},{"1":"Nidda","2":"180.249504","3":"44.668740"},{"1":"Niddatal","2":"74.191510","3":"16.824734"},{"1":"Nidderau","2":"150.910518","3":"28.043120"},{"1":"Niedenstein","2":"0.000000","3":"0.000000"},{"1":"Niederaula","2":"206.670932","3":"58.395248"},{"1":"Niederdorfelden","2":"90.502900","3":"18.945462"},{"1":"Niedernhausen","2":"262.187998","3":"79.283746"},{"1":"Nieste","2":"0.000000","3":"0.000000"},{"1":"Niestetal","2":"468.195412","3":"105.054792"},{"1":"Nüsttal","2":"0.000000","3":"0.000000"},{"1":"Ober-Mörlen","2":"412.877048","3":"116.675936"},{"1":"Ober-Ramstadt","2":"164.565216","3":"39.151784"},{"1":"Oberaula","2":"0.000000","3":"0.000000"},{"1":"Obertshausen","2":"1383.833188","3":"353.770806"},{"1":"Oberursel (Taunus)","2":"1499.513870","3":"375.582432"},{"1":"Oberzent","2":"3.127802","3":"0.927588"},{"1":"Oestrich-Winkel","2":"205.223276","3":"54.568084"},{"1":"Offenbach am Main","2":"10071.953372","3":"2756.013038"},{"1":"Ortenberg","2":"21.831612","3":"5.966238"},{"1":"Ottrau","2":"0.000000","3":"0.000000"},{"1":"Otzberg","2":"0.721696","3":"0.171358"},{"1":"Petersberg","2":"348.631926","3":"75.060340"},{"1":"Pfungstadt","2":"1562.282950","3":"398.508342"},{"1":"Philippsthal (Werra)","2":"101.520856","3":"23.309196"},{"1":"Pohlheim","2":"220.829504","3":"46.045414"},{"1":"Poppenhausen (Wasserkuppe)","2":"0.000000","3":"0.000000"},{"1":"Rabenau","2":"0.000000","3":"0.000000"},{"1":"Ranstadt","2":"101.573736","3":"27.684978"},{"1":"Rasdorf","2":"0.000000","3":"0.000000"},{"1":"Raunheim","2":"368.278976","3":"71.232024"},{"1":"Rauschenberg","2":"1.122110","3":"0.271182"},{"1":"Reichelsheim (Odenwald)","2":"0.000000","3":"0.000000"},{"1":"Reichelsheim (Wetterau)","2":"0.620970","3":"0.000000"},{"1":"Reinhardshagen","2":"0.000000","3":"0.000000"},{"1":"Reinheim","2":"179.267410","3":"42.400234"},{"1":"Reiskirchen","2":"200.192764","3":"40.019094"},{"1":"Riedstadt","2":"42.641084","3":"3.861786"},{"1":"Rimbach","2":"188.179164","3":"51.548836"},{"1":"Ringgau","2":"0.000000","3":"0.000000"},{"1":"Rockenberg","2":"0.000000","3":"0.000000"},{"1":"Rodenbach","2":"491.767156","3":"128.506862"},{"1":"Rodgau","2":"1771.336512","3":"435.692426"},{"1":"Romrod","2":"45.618092","3":"7.825270"},{"1":"Ronneburg","2":"0.000000","3":"0.000000"},{"1":"Ronshausen","2":"0.000000","3":"0.000000"},{"1":"Rosbach v. d. Höhe","2":"598.147872","3":"156.757578"},{"1":"Rosenthal","2":"0.000000","3":"0.000000"},{"1":"Rotenburg a. d. Fulda","2":"254.976230","3":"66.864094"},{"1":"Roßdorf","2":"369.837160","3":"84.551368"},{"1":"Runkel","2":"2.856462","3":"0.000000"},{"1":"Rödermark","2":"641.928078","3":"142.829818"},{"1":"Rüdesheim am Rhein","2":"96.611568","3":"26.193674"},{"1":"Rüsselsheim am Main","2":"4419.394690","3":"1176.251558"},{"1":"Schaafheim","2":"0.000000","3":"0.000000"},{"1":"Schauenburg","2":"492.056492","3":"119.468348"},{"1":"Schenklengsfeld","2":"0.817056","3":"0.214602"},{"1":"Schlangenbad","2":"192.561548","3":"46.959528"},{"1":"Schlitz","2":"57.015118","3":"14.683034"},{"1":"Schlüchtern","2":"246.944900","3":"57.066334"},{"1":"Schmitten im Taunus","2":"49.927226","3":"10.069852"},{"1":"Schotten","2":"24.994872","3":"6.101388"},{"1":"Schrecksbach","2":"0.000000","3":"0.000000"},{"1":"Schwalbach am Taunus","2":"509.709984","3":"106.510958"},{"1":"Schwalmstadt","2":"251.679376","3":"59.299510"},{"1":"Schwalmtal","2":"5.110800","3":"0.693616"},{"1":"Schwarzenborn","2":"0.000000","3":"0.000000"},{"1":"Schöffengrund","2":"0.000000","3":"0.000000"},{"1":"Schöneck","2":"171.769094","3":"38.857858"},{"1":"Seeheim-Jugenheim","2":"243.762462","3":"47.173282"},{"1":"Seligenstadt","2":"782.914538","3":"195.755396"},{"1":"Selters (Taunus)","2":"21.942358","3":"4.342648"},{"1":"Siegbach","2":"0.000000","3":"0.000000"},{"1":"Sinn","2":"498.221302","3":"128.393214"},{"1":"Sinntal","2":"15.931232","3":"3.854714"},{"1":"Solms","2":"270.713990","3":"53.591388"},{"1":"Sontra","2":"28.662928","3":"5.577892"},{"1":"Spangenberg","2":"0.000000","3":"0.000000"},{"1":"Stadtallendorf","2":"286.985686","3":"65.238684"},{"1":"Staufenberg","2":"62.444312","3":"8.152562"},{"1":"Steffenberg","2":"20.786886","3":"4.672796"},{"1":"Steinau an der Straße","2":"52.682284","3":"11.475570"},{"1":"Steinbach (Taunus)","2":"285.634632","3":"69.243170"},{"1":"Stockstadt am Rhein","2":"0.000000","3":"0.000000"},{"1":"Sulzbach (Taunus)","2":"306.159116","3":"71.177436"},{"1":"Söhrewald","2":"0.000000","3":"0.000000"},{"1":"Tann (Rhön)","2":"0.000000","3":"0.000000"},{"1":"Taunusstein","2":"533.713736","3":"125.510378"},{"1":"Trebur","2":"121.909370","3":"31.500170"},{"1":"Trendelburg","2":"0.000000","3":"0.000000"},{"1":"Twistetal","2":"88.254570","3":"20.853770"},{"1":"Ulrichstein","2":"0.000000","3":"0.000000"},{"1":"Usingen","2":"206.976580","3":"54.862336"},{"1":"Vellmar","2":"405.535672","3":"93.339498"},{"1":"Viernheim","2":"817.665786","3":"200.295712"},{"1":"Villmar","2":"0.000000","3":"0.000000"},{"1":"Volkmarsen","2":"0.000000","3":"0.000000"},{"1":"Vöhl","2":"73.688606","3":"19.728356"},{"1":"Wabern","2":"61.293668","3":"15.448680"},{"1":"Wald-Michelbach","2":"94.074232","3":"21.792376"},{"1":"Waldbrunn (Westerwald)","2":"0.000000","3":"0.000000"},{"1":"Waldeck","2":"1.583684","3":"0.514074"},{"1":"Waldems","2":"9.024690","3":"2.222356"},{"1":"Waldkappel","2":"31.091956","3":"8.628216"},{"1":"Waldsolms","2":"0.000000","3":"0.000000"},{"1":"Walluf","2":"97.135508","3":"20.910614"},{"1":"Wanfried","2":"0.000000","3":"0.000000"},{"1":"Wartenberg","2":"125.332718","3":"35.193930"},{"1":"Wehretal","2":"71.045648","3":"16.940596"},{"1":"Wehrheim","2":"17.520212","3":"0.792704"},{"1":"Weilburg","2":"152.710002","3":"43.678624"},{"1":"Weilmünster","2":"0.000000","3":"0.000000"},{"1":"Weilrod","2":"0.000000","3":"0.000000"},{"1":"Weimar (Lahn)","2":"159.562392","3":"28.027172"},{"1":"Weinbach","2":"0.000000","3":"0.000000"},{"1":"Weiterstadt","2":"1665.898546","3":"468.008766"},{"1":"Weißenborn","2":"0.000000","3":"0.000000"},{"1":"Wesertal","2":"0.000000","3":"0.000000"},{"1":"Wettenberg","2":"147.333810","3":"31.660692"},{"1":"Wetter (Hessen)","2":"66.498598","3":"18.341526"},{"1":"Wetzlar","2":"2087.209714","3":"512.870716"},{"1":"Wiesbaden","2":"25167.128252","3":"6929.506896"},{"1":"Wildeck","2":"158.745110","3":"35.410846"},{"1":"Willingen (Upland)","2":"0.000000","3":"0.000000"},{"1":"Willingshausen","2":"2.732268","3":"0.000000"},{"1":"Witzenhausen","2":"213.079456","3":"47.043668"},{"1":"Wohratal","2":"0.000000","3":"0.000000"},{"1":"Wolfhagen","2":"20.049610","3":"3.988982"},{"1":"Wächtersbach","2":"233.637664","3":"53.154434"},{"1":"Wölfersheim","2":"152.262624","3":"34.090762"},{"1":"Wöllstadt","2":"214.613574","3":"47.634998"},{"1":"Zierenberg","2":"322.231386","3":"78.048116"},{"1":"Zwingenberg","2":"404.471486","3":"88.570606"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+<div id="heart-diseases" class="section level2">
+<h2>Heart diseases</h2>
+<p>In order to calculate attributable IHD-numbers, I still need the used
+prevalence data used in the HLNUG calculations.</p>
+</div>
+</div>
+<div id="compare" class="section level1">
+<h1>Compare</h1>
+<p>Here, I perform a validity-check, by comparing the calculated impact
+of each <em>Gemeinde</em> (municipality) calculated by
+<em>healthiar</em>. vs. HLNUG results.</p>
+<div id="number-of-highly-annoyed" class="section level2">
+<h2>Number of highly annoyed</h2>
+<p>The differences between the HA-numbers calculated account to always
+less than <span class="math inline">\(\pm 0,5\)</span>. This seems to be
+only due to rounding differences.</p>
+<pre class="r"><code>comp&lt;-res %&gt;% 
+  left_join(road,by=c(
+    &quot;geo_id_disaggregated&quot;=&quot;namestadtgemeinde&quot;
+  )) %&gt;% 
+  mutate(diffHA=zahlderfallestarkerbelastigung - HA) %&gt;% 
+  mutate(diffHSD=zahlderfallestarkerschlafstorung - HSD)
+
+comp %&gt;% 
+  ggplot(aes(x=HA, y=diffHA))+
+  geom_point() +
+  xlab(&quot;number of HA (calc by healthiar)&quot;) +
+  ylab(&quot;Diff of HA (calc by HLNUG)-(calc by healthiar)&quot;)</code></pre>
+<p><img src="index_files/figure-html/HACompare-1.png" width="672" /></p>
+<p>Each point in the plot accounts for one municipality. The total
+difference in HA amounts to 2.857592, which is totally acceptable.</p>
+</div>
+<div id="number-of-highly-sleep-disturbed" class="section level2">
+<h2>Number of highly sleep disturbed</h2>
+<pre class="r"><code>casesOKHSD&lt;-comp %&gt;% filter(abs(diffHSD)&lt; 0.5) %&gt;% count() %&gt;% unlist
+casesbigDiffHSD&lt;-comp %&gt;% filter(diffHSD&lt; -0.5) %&gt;% count() %&gt;% unlist</code></pre>
+<p>The picture of HSD-numbers is more diverse: The differences between
+the HSD-numbers calculated account to always less than <span
+class="math inline">\(\pm 0,5\)</span> in most (<code>casesOKHSD</code>)
+cases, however in 19 cases, the difference between the two calculations
+amounts to up to a difference of 90 for a single municipality.</p>
+<pre class="r"><code>comp %&gt;% 
+  ggplot(aes(x = HSD, y = diffHSD)) + geom_point() +
+  xlab(&quot;number of HSD (calc by healthiar)&quot;) +
+  ylab(&quot;Diff of HSD (calc by HLNUG)-(calc by healthiar)&quot;)</code></pre>
+<p><img src="index_files/figure-html/HSDcompare-1.png" width="672" /></p>
+<p>The total difference in HSD amounts to -325.078388, which seems quote
+a lot. However it amounts to a fraction of -0.0050372 of all HSD, which
+is still acceptable.</p>
+</div>
+</div>
 
 
 
@@ -436,6 +524,11 @@ $(document).ready(function () {
 </script>
 
 <!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
 
 
 <!-- dynamically load mathjax for compatibility with self-contained -->
