@@ -1,6 +1,7 @@
 # Open issues in the *healthiar* package
 
-
+## typos
+- *Example: get_daly()* missing ")" in code
 ## existing functions
 - *attribute_health output*: how to fill this variable?
 
