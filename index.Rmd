@@ -121,15 +121,16 @@ resNight<-road_long %>%
   {haList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed)} %>% 
   .$impact_raw %>% 
   mutate(exposure_name="lnight")
-res<-bind_rows(resDEN,resNight)
 
-res %>% select(starts_with("geo"), exp, impact, exposure_name) %>%
+res<-bind_rows(resDEN,resNight) %>% 
+  select(starts_with("geo"), exp, impact, exposure_name) %>%
   mutate(geo_id_aggregated=as.logical(geo_id_aggregated)) %>% 
   left_join(road_long, by = c(
     c(
       "geo_id_disaggregated" = "namestadtgemeinde",
       "geo_id_aggregated" = "agglomeration",
-      "exp"="centraldB"
+      "exp"="centraldB",
+      "exposure_name"="measure"
     )
   ))
 
