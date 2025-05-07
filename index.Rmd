@@ -171,7 +171,61 @@ res
 
 ## Heart diseases
 
-In order to calculate attributable IHD-numbers, I still need the used prevalence data used in the HLNUG calculations.
+In order to calculate attributable IHD-numbers, I use need the used prevalence data used in the HLNUG calculations, as given by "Bundesanzeiger": 540 cases IHD per 100000 inhabitants
+
+
+```{r IHD}
+ihd <- function(level_exposure, number_exposed) {
+  result <- attribute_health(
+    approach_risk = "relative_risk",
+    erf_shape = "log_linear",
+    rr_central =    1.08,
+    rr_increment = 10,
+    exp_central = level_exposure,
+    cutoff_central = 53,
+    bhd_central = 550 / 100000 * number_exposed,
+    pop_exp = number_exposed
+  )
+  return(result$health_main$impact)
+}
+ihd(60,10000)
+# hessen_exp_road %>% 
+#   filter(agglomeration==FALSE) %>% 
+#   {ha(.$centraldB,.$lden)}
+
+
+ihdList <- function(disag_ID,
+                    ag_ID,
+                    level_exposure,
+                    number_exposed,
+                    pop) {
+  result <- attribute_health(
+    geo_id_disaggregated = disag_ID,
+    geo_id_aggregated = ag_ID,
+    approach_risk = "relative_risk",
+    erf_shape = "log_linear",
+    rr_central =    1.08,
+    rr_increment = 10,
+    cutoff_central = 53,
+    exp_central = as.list(level_exposure),
+    pop_exp = as.list(number_exposed),
+    population = as.list(pop),
+    bhd_central = 550 / 100000 * number_exposed,
+    
+  )
+  return(result$health_detailed)
+}
+
+
+resDEN<-road_long %>% 
+  filter(measure=="lden") %>% 
+#  filter(agglomeration==FALSE) %>% 
+  {ihdList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed,.$population)} %>% 
+  .$impact_raw %>% 
+  mutate(outcome="IHD")
+
+```
+
 
 # Compare
 
