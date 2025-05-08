@@ -62,9 +62,10 @@ read_END_HLNUG <- function(sheet_name) {
     left_join(population_Hessen)
 }
 
-
 road <-read_END_HLNUG("Straßenlärm")
-  
+air <-read_END_HLNUG("Fluglärm")
+rail <-read_END_HLNUG("Schienenlärm")
+
 road_long<-road%>%
   pivot_longer(
     cols = starts_with("l"),
