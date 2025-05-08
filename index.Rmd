@@ -129,7 +129,7 @@ haList <- function(disag_ID,ag_ID,level_exposure,number_exposed,pop) {
 }
 
 
-resDEN<-road_long %>% 
+resHA<-road_long %>% 
   filter(measure=="lden") %>% 
 #  filter(agglomeration==FALSE) %>% 
   {haList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed,.$population)} %>% 
@@ -152,20 +152,12 @@ hsdList <- function(disag_ID,ag_ID,level_exposure,number_exposed,pop) {
   return(result$health_detailed)
 }
 
-resNight<-road_long %>% 
+resHSD<-road_long %>% 
   filter(measure=="lnight") %>% 
 #  filter(agglomeration==FALSE) %>% 
   {hsdList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed,.$population)} %>% 
   .$impact_raw %>% 
   mutate(outcome="HSD")
-res<-bind_rows(resDEN,resNight) %>% 
-  select(starts_with("geo"), exp, impact, outcome) %>%
-  mutate(geo_id_aggregated=as.logical(geo_id_aggregated)) %>%
-  group_by(outcome,geo_id_disaggregated) %>% 
-  summarise(impact=sum(impact)) %>% 
-  pivot_wider(names_from=outcome,values_from = impact)
-
-res
   
 ```
 
@@ -188,7 +180,6 @@ ihd <- function(level_exposure, number_exposed) {
   )
   return(result$health_main$impact)
 }
-ihd(60,10000)
 # hessen_exp_road %>% 
 #   filter(agglomeration==FALSE) %>% 
 #   {ha(.$centraldB,.$lden)}
@@ -217,12 +208,21 @@ ihdList <- function(disag_ID,
 }
 
 
-resDEN<-road_long %>% 
+resIHD<-road_long %>% 
   filter(measure=="lden") %>% 
 #  filter(agglomeration==FALSE) %>% 
   {ihdList(.$namestadtgemeinde,.$agglomeration,.$centraldB,.$exposed,.$population)} %>% 
   .$impact_raw %>% 
   mutate(outcome="IHD")
+
+res<-#bind_rows(resHA,resHSD,resIHD) %>% 
+  resIHD %>% 
+  select(starts_with("geo"), exp, impact, outcome) %>%
+  mutate(geo_id_aggregated=as.logical(geo_id_aggregated)) %>%
+  group_by(outcome,geo_id_disaggregated) %>% 
+  summarise(impact=sum(impact)) %>% 
+  pivot_wider(names_from=outcome,values_from = impact)
+
 
 ```
 
@@ -257,6 +257,7 @@ Each point in the plot accounts for one municipality. The total difference in HA
 
 
 ## Number of highly sleep disturbed
+
 ```{r}
 casesOKHSD<-comp %>% filter(abs(diffHSD)< 0.5) %>% count() %>% unlist
 casesbigDiffHSD<-comp %>% filter(diffHSD< -0.5) %>% count() %>% unlist
@@ -273,3 +274,34 @@ comp %>%
 ```
 
 The total difference in HSD amounts to `r sum(comp$diffHSD)`, which seems quote a lot. However it amounts to  a fraction of `r sum(comp$diffHSD)/sum(comp$HSD)` of all HSD, which is still acceptable.
+
+
+## Number of IHD
+
+The differences between the IHD-numbers calculated 
+
+
+```{r HACompare}
+
+
+comp<-res %>% 
+  left_join(road,by=c(
+    "geo_id_disaggregated"="namestadtgemeinde"
+  )) %>% 
+  mutate(diffIHD=zahlderfalleischamischerherzkrankheiten - IHD) %>% 
+  mutate(diffIHD=replace_na(diffIHD,0))
+
+totalIHDDiff<-sum(comp$diffIHD)
+totalIHDDiff<-sum(comp$diffIHD)
+
+comp  %>% 
+  filter(abs(diffIHD)>0.5) %>% 
+  ggplot(aes(x=IHD, y=diffIHD))+
+  geom_point() +
+  xlab("number of IHD (calc by healthiar)") +
+  ylab("Diff of IHD (calc by HLNUG)-(calc by healthiar)")+
+  labs(title=paste("Total Difference IHD:",totalIHDDiff))
+
+```
+
+Each point in the plot accounts for one municipality. The total difference in HA amounts to `r sum(comp$diffIHD)`, which is totally acceptable.
