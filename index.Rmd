@@ -48,18 +48,23 @@ The data can be shown like this:
 ```{r read_hessen, message=FALSE, warning=FALSE}
 agglomerations<-c("Darmstadt","Frankfurt am Main","Offenbach am Main","Wiesbaden","Hanau","Kassel")
 
-road <- read_excel("data/ULK2022StatistikGesamt_20240704.xlsx", 
-    sheet = "Straßenlärm", skip = 1) %>% 
-  janitor::clean_names() %>%
-  mutate(gemeinde_kennziffer=as.numeric(gemeinde_kennziffer))%>% 
-  filter(!is.na(gemeinde_kennziffer)) %>% #remove sum rows
-  select(gemeinde_kennziffer:anzahl_belasteter_l_night_ab_70|starts_with("zahl")) %>% 
-  rename_with(~str_remove(.x, "anzahl_belasteter_"), everything()) %>%
-  rename_with(~str_remove_all(.x, "_"), everything()) %>% 
-  rename_with(~str_replace(.x, "ab","|"), everything()) %>% 
-  left_join(population_Hessen)
+
+read_END_HLNUG <- function(sheet_name) {
+  read_excel("data/ULK2022StatistikGesamt_20240704.xlsx", 
+      sheet = sheet_name, skip = 1) %>% 
+    janitor::clean_names() %>%
+    mutate(gemeinde_kennziffer=as.numeric(gemeinde_kennziffer))%>% 
+    filter(!is.na(gemeinde_kennziffer)) %>% #remove sum rows
+    select(gemeinde_kennziffer:anzahl_belasteter_l_night_ab_70|starts_with("zahl")) %>% 
+    rename_with(~str_remove(.x, "anzahl_belasteter_"), everything()) %>%
+    rename_with(~str_remove_all(.x, "_"), everything()) %>% 
+    rename_with(~str_replace(.x, "ab","|"), everything()) %>% 
+    left_join(population_Hessen)
+}
 
 
+road <-read_END_HLNUG("Straßenlärm")
+  
 road_long<-road%>%
   pivot_longer(
     cols = starts_with("l"),
@@ -161,7 +166,7 @@ resHSD<-road_long %>%
   
 ```
 
-## Heart diseases
+## Ischamic Heart diseases
 
 In order to calculate attributable IHD-numbers, I use need the used prevalence data used in the HLNUG calculations, as given by "Bundesanzeiger": 540 cases IHD per 100000 inhabitants
 
@@ -194,7 +199,7 @@ ihdList <- function(disag_ID,
     geo_id_disaggregated = disag_ID,
     geo_id_aggregated = ag_ID,
     approach_risk = "relative_risk",
-    erf_shape = "log_linear",
+    erf_shape = "linear",#log_linear",
     rr_central =    1.08,
     rr_increment = 10,
     cutoff_central = 53,
@@ -291,7 +296,7 @@ comp<-res %>%
   mutate(diffIHD=zahlderfalleischamischerherzkrankheiten - IHD) %>% 
   mutate(diffIHD=replace_na(diffIHD,0))
 
-totalIHDDiff<-sum(comp$diffIHD)
+totalIHDHealthiar<-sum(comp$IHD,na.rm=T)
 totalIHDDiff<-sum(comp$diffIHD)
 
 comp  %>% 
@@ -300,8 +305,8 @@ comp  %>%
   geom_point() +
   xlab("number of IHD (calc by healthiar)") +
   ylab("Diff of IHD (calc by HLNUG)-(calc by healthiar)")+
-  labs(title=paste("Total Difference IHD:",totalIHDDiff))
+  labs(title=paste("Total IHD by healthiar:",totalIHDHealthiar,"\nTotal Difference IHD:",totalIHDDiff))
 
 ```
 
-Each point in the plot accounts for one municipality. The total difference in HA amounts to `r sum(comp$diffIHD)`, which is totally acceptable.
+Each point in the plot accounts for one municipality. The total difference in HA amounts to `r sum(comp$diffIHD)`, which is somewhat to big.
